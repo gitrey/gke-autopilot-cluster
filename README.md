@@ -9,4 +9,5 @@ Autopilot is a new mode of operation in Google Kubernetes Engine (GKE) that is d
 
 With Autopilot, you no longer have to monitor the health of your nodes or calculate the amount of compute capacity that your workloads require. Autopilot supports most Kubernetes APIs, tools, and its rich ecosystem. You stay within GKE without having to interact with the Compute Engine APIs, CLIs, or UI, as the nodes are not accessible through Compute Engine, like they are in Standard mode. You pay only for the CPU, memory, and storage that your Pods request while they are running.
 
+
 https://cloud.google.com/kubernetes-engine/docs/concepts/autopilot-overview
