@@ -1,0 +1,96 @@
+steps:
+  - name: gcr.io/cloud-builders/git
+    args:
+      - '-c'
+      - |
+        IFS='/' read -a array <<< "${_REF}"
+        echo ${_REF}
+        echo 0 ${array[0]}
+        echo 1 ${array[1]}
+        echo 2 ${array[2]}
+        echo REPO=${_APP_REPO}
+        echo _SHA=${_SHA}
+        export REPO=${_APP_REPO}
+
+
+        echo BRANCH_NAME=${array[2]}
+        export BRANCH_NAME=${array[2]}
+        export _BRANCH_NAME=${array[2]}
+
+        if ((${array[1]} == "tags")); then
+          echo "TAG " ${BRANCH_NAME}
+        elif ((${array[2]} == "main")); then
+          echo "main"
+        else 
+          echo ${BRANCH_NAME}
+        fi
+        echo "git clone -b ${array[2]} ${_APP_REPO}"
+        git clone -b ${array[2]} ${_APP_REPO}
+        
+        sed -i s/PROJECT_ID/$PROJECT_ID/g $_APP_NAME/environments/*/terraform.tfvars
+        sed -i s/PROJECT_ID/$PROJECT_ID/g $_APP_NAME/environments/*/backend.tf
+        sed -i s/_APP_NAME/$_APP_NAME/g $_APP_NAME/environments/*/backend.tf
+        sed -i s/_REGION/$_REGION/g $_APP_NAME/modules/*/main.tf
+        sed -i s/_APP_NAME/$_APP_NAME/g $_APP_NAME/modules/*/main.tf
+    id: clone-app
+    entrypoint: bash
+  - id: 'tf init'
+    name: 'hashicorp/terraform:1.0.0'
+    entrypoint: 'sh'
+    args:
+        - '-c'
+        - |
+            if [ -d "$_APP_NAME/environments/dev/" ]; then
+              cd $_APP_NAME/environments/dev
+              terraform init
+            else
+              for dir in $_APP_NAME/environments/*/
+              do 
+                cd ${dir}   
+                env=${dir%*/}
+                env=${env#*/}
+                echo ""
+                echo "*************** TERRAFORM INIT ******************"
+                echo "******* At environment: ${env} ********"
+                echo "*************************************************"
+                terraform init || exit 1
+                cd ../../
+              done
+            fi
+  - id: 'tf plan'
+    name: 'hashicorp/terraform:1.0.0'
+    entrypoint: 'sh'
+    args:
+        - '-c'
+        - |
+          if [ -d "$_APP_NAME/environments/dev/" ]; then
+            cd $_APP_NAME/environments/dev
+            terraform plan
+          else
+            for dir in $_APP_NAME/environments/*/
+            do 
+              cd ${dir}   
+              env=${dir%*/}
+              env=${env#*/}  
+              echo ""
+              echo "*************** TERRAFOM PLAN ******************"
+              echo "******* At environment: ${env} ********"
+              echo "*************************************************"
+              terraform plan || exit 1
+              cd ../../
+            done
+          fi
+  - id: 'tf apply'
+    name: 'hashicorp/terraform:1.0.0'
+    entrypoint: 'sh'
+    args:
+        - '-c'
+        - |
+          if [ -d "$_APP_NAME/environments/dev/" ]; then
+            cd $_APP_NAME/environments/dev      
+            terraform apply -auto-approve
+          else
+            echo "***************************** SKIPPING APPLYING *******************************"
+            echo "Branch '$_BRANCH_NAME' does not represent an oficial environment."
+            echo "*******************************************************************************"
+          fi
